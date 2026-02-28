@@ -3,19 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="庫存管家">
-    <title>庫存管家 - 薄荷綠工作室</title>
-    
-    <link rel="icon" type="image/jpeg" href="icon.jpg?v=9">
-    <link rel="apple-touch-icon" type="image/jpeg" href="icon.jpg?v=9">
+    <title>庫存管家</title>
     
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
-
+    
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -23,17 +16,16 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; }
-        .glass-morphism { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); }
+        body { font-family: 'Noto Sans TC', sans-serif; }
     </style>
 </head>
 <body class="bg-[#f0f9f6]">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo, useRef } = React;
+        const { useState, useEffect } = React;
 
-        // --- 您提供的 Firebase 配置 ---
+        // 您的專屬 Firebase 配置
         const firebaseConfig = {
             apiKey: "AIzaSyAwajTS9acHu-AS3Ic2f50eThVgo6XxLEM",
             authDomain: "mintgreen-app.firebaseapp.com",
@@ -43,220 +35,79 @@
             appId: "1:952421896550:web:a8597a2727c9862e26f8a7"
         };
 
-        // 初始化 Firebase
-        firebase.initializeApp(firebaseConfig);
+        // 初始化
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
         const auth = firebase.auth();
-        const db = firebase.firestore();
-        const storage = firebase.storage();
         const provider = new firebase.auth.GoogleAuthProvider();
-
-        const Icon = ({ name, size = 20, className = "" }) => {
-            const spanRef = useRef(null);
-            useEffect(() => {
-                if (spanRef.current && window.lucide) {
-                    spanRef.current.innerHTML = `<i data-lucide="${name}"></i>`;
-                    window.lucide.createIcons({
-                        root: spanRef.current,
-                        attrs: { strokeWidth: 2, width: size, height: size, class: className }
-                    });
-                }
-            }, [name, size, className]);
-            return <span ref={spanRef} className="inline-flex items-center"></span>;
-        };
 
         const App = () => {
             const [user, setUser] = useState(null);
             const [loading, setLoading] = useState(true);
-            const [inventory, setInventory] = useState([]);
-            const [isModalOpen, setIsModalOpen] = useState(false);
-            const [editingItem, setEditingItem] = useState(null);
-            const [formData, setFormData] = useState({ name: '', sku: '', stock: 0, warningLevel: 5, image: null });
-            const [searchTerm, setSearchTerm] = useState('');
-            const [uploading, setUploading] = useState(false);
-            const [notification, setNotification] = useState(null);
-            const fileInputRef = useRef(null);
+            const [errorMsg, setErrorMsg] = useState("");
 
-            // 監聽登入狀態
             useEffect(() => {
                 const unsubscribe = auth.onAuthStateChanged((u) => {
                     setUser(u);
                     setLoading(false);
-                    if (u) loadData(u.uid);
                 });
                 return unsubscribe;
             }, []);
 
-            // 讀取雲端資料
-            const loadData = async (uid) => {
-                const snapshot = await db.collection('inventory').doc(uid).collection('items').get();
-                const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setInventory(items);
-            };
-
-            const handleLogin = () => auth.signInWithRedirect(provider);
-            const handleLogout = () => auth.signOut();
-
-            const showNotice = (msg) => {
-                setNotification(msg);
-                setTimeout(() => setNotification(null), 3000);
-            };
-
-            // 處理照片上傳至雲端 Storage
-            const handleImageChange = async (e) => {
-                const file = e.target.files[0];
-                if (!file || !user) return;
-                
-                setUploading(true);
-                const storageRef = storage.ref(`images/${user.uid}/${Date.now()}_${file.name}`);
+            const handleLogin = async () => {
                 try {
-                    await storageRef.put(file);
-                    const url = await storageRef.getDownloadURL();
-                    setFormData({ ...formData, image: url });
-                    showNotice("照片上傳成功！");
-                } catch (err) {
-                    showNotice("上傳失敗，請檢查權限設定");
-                }
-                setUploading(false);
-            };
-
-            const handleSubmit = async (e) => {
-                e.preventDefault();
-                if (!formData.name || !formData.sku) return showNotice("請填寫名稱與編號");
-
-                const itemData = {
-                    ...formData,
-                    stock: Number(formData.stock),
-                    warningLevel: Number(formData.warningLevel),
-                    updatedAt: new Date().toLocaleDateString()
-                };
-
-                const userItems = db.collection('inventory').doc(user.uid).collection('items');
-                
-                if (editingItem) {
-                    await userItems.doc(editingItem.id).update(itemData);
-                    showNotice("已更新雲端資料");
-                } else {
-                    await userItems.add(itemData);
-                    showNotice("已新增至雲端");
-                }
-                
-                setIsModalOpen(false);
-                loadData(user.uid);
-            };
-
-            const deleteItem = async (id) => {
-                if (confirm("確定要刪除嗎？資料將無法找回。")) {
-                    await db.collection('inventory').doc(user.uid).collection('items').doc(id).delete();
-                    loadData(user.uid);
-                    showNotice("已刪除商品");
+                    setErrorMsg("正在喚起 Google 登入視窗...");
+                    // 使用彈出視窗方式，這在手機 Chrome/Safari 較直觀
+                    await auth.signInWithPopup(provider);
+                } catch (error) {
+                    console.error(error);
+                    // 抓錯邏輯
+                    if (error.code === 'auth/unauthorized-domain') {
+                        setErrorMsg("❌ 錯誤：此網址未被授權。請到 Firebase 後台將您的 Vercel 網址加入『授權網域』。");
+                    } else if (error.code === 'auth/popup-blocked') {
+                        setErrorMsg("❌ 錯誤：登入視窗被瀏覽器攔截了，請允許彈出視窗。");
+                    } else {
+                        setErrorMsg(`❌ 登入失敗：${error.message}`);
+                    }
                 }
             };
 
-            if (loading) return <div className="h-screen flex items-center justify-center text-emerald-600 font-bold">同步雲端中...</div>;
+            if (loading) return <div className="h-screen flex items-center justify-center text-emerald-600 font-bold text-xl text-center">正在連線至薄荷綠雲端...</div>;
 
             if (!user) {
                 return (
                     <div className="h-screen flex flex-col items-center justify-center p-6 text-center">
-                        <div className="bg-white p-10 rounded-[3rem] shadow-2xl border-4 border-white max-w-sm w-full">
-                            <div className="bg-emerald-500 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg text-white">
-                                <Icon name="package" size={40} />
-                            </div>
+                        <div className="bg-white p-10 rounded-[3rem] shadow-2xl max-w-sm w-full border-4 border-emerald-50">
                             <h1 className="text-3xl font-black text-emerald-900 mb-2">庫存管家</h1>
-                            <p className="text-slate-500 mb-8 font-medium">請登入您的工作室 Gmail<br/>開啟雲端金庫</p>
-                            <button onClick={handleLogin} className="w-full py-4 bg-white border-2 border-slate-100 rounded-2xl flex items-center justify-center gap-3 font-bold hover:bg-slate-50 transition-all shadow-sm">
-                                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20"/>
+                            <p className="text-slate-500 mb-8 font-medium text-sm text-center">歡迎回來，薄荷綠工作室！<br/>請登入以存取雲端資料庫。</p>
+                            
+                            <button 
+                                onClick={handleLogin} 
+                                className="w-full py-4 bg-emerald-600 text-white rounded-2xl flex items-center justify-center gap-3 font-bold hover:bg-emerald-700 transition-all shadow-lg active:scale-95"
+                            >
+                                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" className="bg-white rounded-full p-0.5"/>
                                 透過 Google 登入
                             </button>
+
+                            {errorMsg && (
+                                <div className="mt-6 p-4 bg-red-50 text-red-600 text-xs rounded-xl border border-red-100 font-bold leading-relaxed text-left">
+                                    {errorMsg}
+                                </div>
+                            )}
                         </div>
                     </div>
                 );
             }
 
             return (
-                <div className="min-h-screen">
-                    <nav className="glass-morphism border-b border-emerald-100 sticky top-0 z-40 px-6 py-4 flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-emerald-500 p-2 rounded-xl text-white shadow-md"><Icon name="package" /></div>
-                            <div>
-                                <h1 className="font-black text-lg text-emerald-900 leading-tight">庫存管家</h1>
-                                <p className="text-[10px] text-emerald-600 font-bold">雲端同步中</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <button onClick={() => { setEditingItem(null); setFormData({name:'', sku:'', stock:0, warningLevel:5, image:null}); setIsModalOpen(true); }} className="bg-emerald-600 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg active:scale-90"><Icon name="plus" /></button>
-                            <img src={user.photoURL} onClick={handleLogout} className="w-10 h-10 rounded-full border-2 border-white shadow-md cursor-pointer" />
-                        </div>
-                    </nav>
-
-                    <main className="p-6 max-w-4xl mx-auto space-y-6">
-                        <div className="bg-white rounded-[2.5rem] p-4 flex items-center border border-emerald-100 shadow-sm">
-                            <Icon name="search" className="ml-2 text-emerald-300" />
-                            <input placeholder="搜尋庫存..." className="w-full p-2 bg-transparent outline-none font-bold" value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)} />
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-4">
-                            {inventory.filter(i => i.name.includes(searchTerm)).map(item => (
-                                <div key={item.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-emerald-50 flex items-center gap-4 relative overflow-hidden group">
-                                    <div className="w-20 h-20 bg-emerald-50 rounded-2xl overflow-hidden border flex-shrink-0">
-                                        {item.image ? <img src={item.image} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-emerald-100"><Icon name="camera" size={32}/></div>}
-                                    </div>
-                                    <div className="flex-1">
-                                        <h3 className="font-black text-slate-800 text-lg leading-tight mb-1">{item.name}</h3>
-                                        <p className="text-xs font-mono text-emerald-600 bg-emerald-50 inline-block px-2 py-0.5 rounded-md mb-2">{item.sku}</p>
-                                        <div className="flex items-end justify-between">
-                                            <div className="flex items-baseline gap-1">
-                                                <span className={`text-3xl font-black ${item.stock <= item.warningLevel ? 'text-red-600' : 'text-slate-900'}`}>{item.stock}</span>
-                                                <span className="text-[10px] text-slate-400 font-bold">PCS</span>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <button onClick={()=>{setEditingItem(item); setFormData(item); setIsModalOpen(true);}} className="p-2 bg-slate-50 text-slate-400 rounded-lg"><Icon name="edit-3" size={16}/></button>
-                                                <button onClick={()=>deleteItem(item.id)} className="p-2 bg-red-50 text-red-300 rounded-lg"><Icon name="trash-2" size={16}/></button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {item.stock <= item.warningLevel && <div className="absolute top-0 right-0 bg-red-500 text-white text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-tighter">低庫存</div>}
-                                </div>
-                            ))}
-                        </div>
-                    </main>
-
-                    {isModalOpen && (
-                        <div className="fixed inset-0 bg-emerald-950/40 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-4">
-                            <div className="bg-white w-full max-w-lg rounded-t-[3rem] sm:rounded-[3rem] p-8 shadow-2xl animate-in slide-in-from-bottom duration-300">
-                                <h2 className="text-2xl font-black text-emerald-900 mb-6">{editingItem ? '修改商品' : '新增入庫'}</h2>
-                                <div className="space-y-4">
-                                    <div className="flex gap-4 items-center">
-                                        <div onClick={()=>fileInputRef.current.click()} className="w-24 h-24 bg-emerald-50 rounded-2xl border-4 border-dashed border-emerald-100 flex items-center justify-center overflow-hidden cursor-pointer relative">
-                                            {uploading ? <div className="animate-spin text-emerald-500"><Icon name="loader" /></div> : (formData.image ? <img src={formData.image} className="w-full h-full object-cover"/> : <Icon name="camera" className="text-emerald-200" />)}
-                                        </div>
-                                        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
-                                        <div className="flex-1 space-y-3">
-                                            <input placeholder="商品名稱" className="w-full p-3 bg-slate-50 rounded-xl font-bold border-2 border-transparent focus:border-emerald-500 outline-none" value={formData.name} onChange={e=>setFormData({...formData, name:e.target.value})} />
-                                            <input placeholder="SKU 編號" className="w-full p-3 bg-slate-50 rounded-xl font-mono text-sm border-2 border-transparent focus:border-emerald-500 outline-none" value={formData.sku} onChange={e=>setFormData({...formData, sku:e.target.value.toUpperCase()})} />
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-emerald-50 p-4 rounded-2xl">
-                                            <label className="text-[10px] font-black text-emerald-700 block uppercase mb-1">當前數量</label>
-                                            <input type="number" className="bg-transparent text-2xl font-black w-full outline-none" value={formData.stock} onChange={e=>setFormData({...formData, stock:e.target.value})} />
-                                        </div>
-                                        <div className="bg-red-50 p-4 rounded-2xl">
-                                            <label className="text-[10px] font-black text-red-700 block uppercase mb-1">警報水位</label>
-                                            <input type="number" className="bg-transparent text-2xl font-black w-full outline-none" value={formData.warningLevel} onChange={e=>setFormData({...formData, warningLevel:e.target.value})} />
-                                        </div>
-                                    </div>
-                                    <button onClick={handleSubmit} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all mt-4">儲存至雲端</button>
-                                    <button onClick={()=>setIsModalOpen(false)} className="w-full py-2 text-slate-300 font-bold text-sm">取消返回</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {notification && (
-                        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-8 py-4 rounded-full shadow-2xl z-[100] animate-in fade-in zoom-in font-bold text-sm">
-                            {notification}
-                        </div>
-                    )}
+                <div className="p-6 text-center">
+                    <div className="bg-white p-8 rounded-[2rem] shadow-sm inline-block">
+                        <img src={user.photoURL} className="w-20 h-20 rounded-full mx-auto mb-4 border-4 border-emerald-100" />
+                        <h2 className="text-2xl font-black text-emerald-900">登入成功！</h2>
+                        <p className="text-slate-500 font-bold">{user.displayName}</p>
+                        <button onClick={() => auth.signOut()} className="mt-6 text-slate-300 text-sm font-bold underline">登出帳號</button>
+                    </div>
                 </div>
             );
         };
