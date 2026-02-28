@@ -1,115 +1,228 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="庫存管家">
-
-    <title>庫存管家</title>
-    
-    <link rel="icon" type="image/jpeg" href="icon.jpg?v=4">
-    <link rel="apple-touch-icon" type="image/jpeg" href="icon.jpg?v=4">
-    
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; }
-        /* 隱藏捲軸但保留功能 */
-        ::-webkit-scrollbar { width: 0px; background: transparent; }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>庫存管家</title>
+<link rel="icon" type="image/jpeg" href="icon.jpg?v=3">
+<link rel="apple-touch-icon" type="image/jpeg" href="icon.jpg?v=3">
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; }
+        /* 隱藏捲軸但保留功能 */
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+    </style>
 </head>
 <body class="bg-emerald-50/50">
-    <div id="root"></div>
+    <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useMemo, useRef, useEffect } = React;
+    <script type="text/babel">
+        const { useState, useMemo, useRef, useEffect } = React;
 
-        // 簡易版 Lucide 圖示組件
-        const Icon = ({ name, size = 20, className = "" }) => {
-            const [iconSvg, setIconSvg] = useState("");
-            useEffect(() => {
-                if (window.lucide) {
-                    const svg = lucide.createIcons({
-                        icons: { [name]: {} },
-                        attrs: { strokeWidth: 2, width: size, height: size, class: className }
-                    });
-                }
-            }, [name, size, className]);
-            return <i data-lucide={name} className={className} style={{width: size, height: size}}></i>;
-        };
+        // 簡易版 Lucide 圖示組件
+        const Icon = ({ name, size = 20, className = "" }) => {
+            const [iconSvg, setIconSvg] = useState("");
+            useEffect(() => {
+                if (window.lucide) {
+                    const svg = lucide.createIcons({
+                        icons: { [name]: {} },
+                        attrs: { strokeWidth: 2, width: size, height: size, class: className }
+                    });
+                }
+            }, [name, size, className]);
+            return <i data-lucide={name} className={className} style={{width: size, height: size}}></i>;
+        };
 
-        const App = () => {
-            const [inventory, setInventory] = useState([
-                { id: 1, name: "示範商品 A", sku: "SKU-001", stock: 5, warningLevel: 10, image: null, updatedAt: new Date().toLocaleDateString() },
-                { id: 2, name: "示範商品 B", sku: "SKU-002", stock: 25, warningLevel: 15, image: null, updatedAt: new Date().toLocaleDateString() }
-            ]);
+        const App = () => {
+            const [inventory, setInventory] = useState([
+                { id: 1, name: "示範商品 A", sku: "SKU-001", stock: 5, warningLevel: 10, image: null, updatedAt: new Date().toLocaleDateString() },
+                { id: 2, name: "示範商品 B", sku: "SKU-002", stock: 25, warningLevel: 15, image: null, updatedAt: new Date().toLocaleDateString() }
+            ]);
 
-            const [isModalOpen, setIsModalOpen] = useState(false);
-            const [editingItem, setEditingItem] = useState(null);
-            const [searchTerm, setSearchTerm] = useState('');
-            const [filterLowStock, setFilterLowStock] = useState(false);
-            const [notification, setNotification] = useState(null);
-            const [deleteTarget, setDeleteTarget] = useState(null);
-            const fileInputRef = useRef(null);
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            const [editingItem, setEditingItem] = useState(null);
+            const [searchTerm, setSearchTerm] = useState('');
+            const [filterLowStock, setFilterLowStock] = useState(false);
+            const [notification, setNotification] = useState(null);
+            const [deleteTarget, setDeleteTarget] = useState(null);
+            const fileInputRef = useRef(null);
 
-            const [formData, setFormData] = useState({ name: '', sku: '', stock: 0, warningLevel: 5, image: null });
+            const [formData, setFormData] = useState({ name: '', sku: '', stock: 0, warningLevel: 5, image: null });
 
-            const showNotice = (msg) => {
-                setNotification(msg);
-                setTimeout(() => setNotification(null), 3000);
-            };
+            const showNotice = (msg) => {
+                setNotification(msg);
+                setTimeout(() => setNotification(null), 3000);
+            };
 
-            const handleImageChange = (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onloadend = () => setFormData({ ...formData, image: reader.result });
-                    reader.readAsDataURL(file);
-                }
-            };
+            const handleImageChange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => setFormData({ ...formData, image: reader.result });
+                    reader.readAsDataURL(file);
+                }
+            };
 
-            const openModal = (item = null) => {
-                if (item) {
-                    setEditingItem(item);
-                    setFormData(item);
-                } else {
-                    setEditingItem(null);
-                    setFormData({ name: '', sku: '', stock: 0, warningLevel: 5, image: null });
-                }
-                setIsModalOpen(true);
-            };
+            const openModal = (item = null) => {
+                if (item) {
+                    setEditingItem(item);
+                    setFormData(item);
+                } else {
+                    setEditingItem(null);
+                    setFormData({ name: '', sku: '', stock: 0, warningLevel: 5, image: null });
+                }
+                setIsModalOpen(true);
+            };
 
-            const handleSubmit = (e) => {
-                e.preventDefault();
-                const updatedData = { ...formData, updatedAt: new Date().toLocaleDateString(), stock: Number(formData.stock), warningLevel: Number(formData.warningLevel) };
-                if (editingItem) {
-                    setInventory(inventory.map(item => item.id === editingItem.id ? { ...updatedData, id: item.id } : item));
-                    showNotice("資料已更新");
-                } else {
-                    setInventory([...inventory, { ...updatedData, id: Date.now() }]);
-                    showNotice("新商品已新增");
-                }
-                setIsModalOpen(false);
-            };
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                const updatedData = { ...formData, updatedAt: new Date().toLocaleDateString(), stock: Number(formData.stock), warningLevel: Number(formData.warningLevel) };
+                if (editingItem) {
+                    setInventory(inventory.map(item => item.id === editingItem.id ? { ...updatedData, id: item.id } : item));
+                    showNotice("資料已更新");
+                } else {
+                    setInventory([...inventory, { ...updatedData, id: Date.now() }]);
+                    showNotice("新商品已新增");
+                }
+                setIsModalOpen(false);
+            };
 
-            const filteredInventory = useMemo(() => {
-                return inventory.filter(item => {
-                    const matchesSearch = (item.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || (item.sku || '').toLowerCase().includes(searchTerm.toLowerCase());
-                    const matchesFilter = filterLowStock ? item.stock <= item.warningLevel : true;
-                    return matchesSearch && matchesFilter;
-                });
-            }, [inventory, searchTerm, filterLowStock]);
+            const filteredInventory = useMemo(() => {
+                return inventory.filter(item => {
+                    const matchesSearch = (item.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || (item.sku || '').toLowerCase().includes(searchTerm.toLowerCase());
+                    const matchesFilter = filterLowStock ? item.stock <= item.warningLevel : true;
+                    return matchesSearch && matchesFilter;
+                });
+            }, [inventory, searchTerm, filterLowStock]);
 
-            const lowStockCount = inventory.filter(i => i.stock <= i.warningLevel).length;
+            const lowStockCount = inventory.filter(i => i.stock <= i.warningLevel).length;
 
-            useEffect(() => { if (window.lucide) lucide.createIcons(); }, [filteredInventory, isModalOpen, deleteTarget]);
+            useEffect(() => { if (window.lucide) lucide.createIcons(); }, [filteredInventory, isModalOpen, deleteTarget]);
 
-            return (
-                <div className="min-h-screen text-slate-90
+            return (
+                <div className="min-h-screen text-slate-900">
+                    <nav className="bg-white border-b border-emerald-100 sticky top-0 z-40 px-4 py-3 flex justify-between items-center shadow-sm">
+                        <div className="flex items-center gap-2">
+                            <div className="bg-emerald-500 p-2 rounded-lg text-white"><Icon name="package" /></div>
+                            <h1 className="font-black text-xl text-emerald-900">庫存管家</h1>
+                        </div>
+                        <button onClick={() => openModal()} className="bg-emerald-600 text-white px-5 py-2 rounded-full flex items-center gap-2 font-bold shadow-md active:scale-95">
+                            <Icon name="plus" /><span>新增商品</span>
+                        </button>
+                    </nav>
+
+                    <main className="max-w-6xl mx-auto p-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                            <div className="bg-white p-5 rounded-2xl shadow-sm border border-emerald-100">
+                                <p className="text-emerald-600/70 text-sm font-bold">總品項</p>
+                                <p className="text-3xl font-black">{inventory.length}</p>
+                            </div>
+                            <div className={`p-5 rounded-2xl shadow-sm border ${lowStockCount > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-emerald-100'}`}>
+                                <p className="text-sm font-bold">庫存警示</p>
+                                <p className={`text-3xl font-black ${lowStockCount > 0 ? 'text-red-600' : ''}`}>{lowStockCount}</p>
+                            </div>
+                            <div className="bg-white p-5 rounded-2xl border border-emerald-100 flex items-center">
+                                <Icon name="search" className="mr-2 text-emerald-400" />
+                                <input type="text" placeholder="搜尋..." className="w-full bg-transparent outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-emerald-100">
+                            <table className="w-full text-left">
+                                <thead className="bg-emerald-50/50">
+                                    <tr>
+                                        <th className="px-6 py-4 font-black">商品</th>
+                                        <th className="px-6 py-4 font-black">SKU</th>
+                                        <th className="px-6 py-4 font-black">數量</th>
+                                        <th className="px-6 py-4 text-center">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-emerald-50">
+                                    {filteredInventory.map(item => (
+                                        <tr key={item.id} className="hover:bg-emerald-50/20">
+                                            <td className="px-6 py-4 flex items-center gap-3">
+                                                <div className="w-12 h-12 bg-emerald-50 rounded-lg flex items-center justify-center overflow-hidden border">
+                                                    {item.image ? <img src={item.image} className="w-full h-full object-cover"/> : <Icon name="package" className="text-emerald-200"/>}
+                                                </div>
+                                                <span className="font-bold">{item.name}</span>
+                                            </td>
+                                            <td className="px-6 py-4 font-mono text-sm">{item.sku}</td>
+                                            <td className="px-6 py-4">
+                                                <span className={`text-xl font-black ${item.stock <= item.warningLevel ? 'text-red-600' : ''}`}>{item.stock}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <button onClick={() => openModal(item)} className="p-2 text-emerald-600"><Icon name="edit-3" size={18}/></button>
+                                                <button onClick={() => setDeleteTarget(item)} className="p-2 text-red-600"><Icon name="trash-2" size={18}/></button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </main>
+
+                    {/* 編輯/新增視窗 */}
+                    {isModalOpen && (
+                        <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                            <div className="bg-white w-full max-w-lg rounded-[2rem] p-8 shadow-2xl">
+                                <h2 className="text-2xl font-black mb-6 text-emerald-900">{editingItem ? '修改商品' : '新商品入庫'}</h2>
+                                <div className="space-y-4">
+                                    <div className="flex gap-4">
+                                        <div onClick={() => fileInputRef.current.click()} className="w-24 h-24 bg-emerald-50 rounded-2xl border-2 border-dashed border-emerald-200 flex items-center justify-center cursor-pointer overflow-hidden">
+                                            {formData.image ? <img src={formData.image} className="w-full h-full object-cover"/> : <Icon name="camera" className="text-emerald-300"/>}
+                                            <input ref={fileInputRef} type="file" className="hidden" onChange={handleImageChange}/>
+                                        </div>
+                                        <div className="flex-1 space-y-4">
+                                            <input placeholder="商品名稱" className="w-full p-3 bg-slate-50 rounded-xl outline-none border focus:border-emerald-500" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})}/>
+                                            <input placeholder="SKU 編號" className="w-full p-3 bg-slate-50 rounded-xl outline-none border focus:border-emerald-500" value={formData.sku} onChange={e => setFormData({...formData, sku: e.target.value})}/>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-emerald-50 p-4 rounded-2xl">
+                                            <label className="text-xs font-bold text-emerald-700">當前庫存</label>
+                                            <input type="number" className="w-full bg-transparent text-2xl font-black outline-none" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})}/>
+                                        </div>
+                                        <div className="bg-red-50 p-4 rounded-2xl">
+                                            <label className="text-xs font-bold text-red-700">警報水位</label>
+                                            <input type="number" className="w-full bg-transparent text-2xl font-black outline-none" value={formData.warningLevel} onChange={e => setFormData({...formData, warningLevel: e.target.value})}/>
+                                        </div>
+                                    </div>
+                                    <button onClick={handleSubmit} className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black text-lg shadow-lg">確認儲存</button>
+                                    <button onClick={() => setIsModalOpen(false)} className="w-full py-2 text-slate-400 font-bold">取消</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {deleteTarget && (
+                        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+                            <div className="bg-white p-8 rounded-3xl text-center max-w-sm w-full">
+                                <h3 className="text-xl font-black mb-4">確定刪除「{deleteTarget.name}」？</h3>
+                                <div className="flex gap-4">
+                                    <button onClick={() => setDeleteTarget(null)} className="flex-1 py-3 bg-slate-100 rounded-xl font-bold">取消</button>
+                                    <button onClick={() => { setInventory(inventory.filter(i => i.id !== deleteTarget.id)); setDeleteTarget(null); showNotice("已刪除"); }} className="flex-1 py-3 bg-red-500 text-white rounded-xl font-bold">確定</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {notification && (
+                        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-8 py-4 rounded-full shadow-2xl z-[100] animate-bounce">
+                            {notification}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
