@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <title>庫存管家</title>
+    <meta name="apple-mobile-web-app-title" content="庫存管家">
+    <title>庫存管家 - 薄荷綠工作室</title>
     
     <link rel="icon" type="image/jpeg" href="icon.jpg?v=12">
     <link rel="apple-touch-icon" type="image/jpeg" href="icon.jpg?v=12">
@@ -22,11 +23,13 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .alert-card { background: #fff5f5; border: 1px solid #fed7d7; }
+        .stat-card { background: white; border: 1px solid #e2e8f0; }
         .alert-pulse { animation: alertPulse 2s infinite; }
-        @keyframes alertPulse { 0% { color: #ef4444; opacity: 1; } 50% { color: #f87171; opacity: 0.6; } 100% { color: #ef4444; opacity: 1; } }
+        @keyframes alertPulse { 0% { color: #ef4444; } 50% { color: #fca5a5; } 100% { color: #ef4444; } }
     </style>
 </head>
-<body class="bg-[#f3faf7]">
+<body class="bg-[#f8faf9]">
     <div id="root"></div>
 
     <script type="text/babel">
@@ -53,7 +56,7 @@
                     spanRef.current.innerHTML = `<i data-lucide="${name}"></i>`;
                     window.lucide.createIcons({
                         root: spanRef.current,
-                        attrs: { strokeWidth: 2.5, width: size, height: size, class: className }
+                        attrs: { strokeWidth: 2, width: size, height: size, class: className }
                     });
                 }
             }, [name, size, className]);
@@ -86,7 +89,6 @@
 
             const handleSubmit = async (e) => {
                 e.preventDefault();
-                if (!formData.name) return alert("請輸入商品名稱");
                 const itemData = { ...formData, stock: Number(formData.stock), warningLevel: Number(formData.warningLevel), updatedAt: new Date().getTime() };
                 const userItems = db.collection('inventory').doc(user.uid).collection('items');
                 if (editingItem) await userItems.doc(editingItem.id).update(itemData);
@@ -95,106 +97,121 @@
                 loadData(user.uid);
             };
 
+            const alertCount = useMemo(() => inventory.filter(i => i.stock <= i.warningLevel).length, [inventory]);
+            
             const filteredList = useMemo(() => {
-                return inventory.filter(i => (i.name.includes(searchTerm) || i.sku.includes(searchTerm)) && (showOnlyAlert ? i.stock <= i.warningLevel : true));
+                return inventory.filter(i => (i.name.toLowerCase().includes(searchTerm.toLowerCase()) || i.sku.toLowerCase().includes(searchTerm.toLowerCase())) && (showOnlyAlert ? i.stock <= i.warningLevel : true));
             }, [inventory, searchTerm, showOnlyAlert]);
 
-            if (loading) return <div className="h-screen flex items-center justify-center text-emerald-600 font-bold tracking-widest animate-pulse text-lg">薄荷綠雲端同步中...</div>;
+            if (loading) return <div className="h-screen flex items-center justify-center text-emerald-600 font-bold">同步雲端中...</div>;
 
-            if (!user) {
-                return (
-                    <div className="h-screen flex flex-col items-center justify-center bg-white p-8 text-center">
-                        <div className="bg-emerald-500 p-6 rounded-[2.5rem] text-white mb-8 shadow-2xl shadow-emerald-100 animate-bounce"><Icon name="package" size={56} /></div>
-                        <h1 className="text-4xl font-black text-emerald-900 mb-2">庫存管家</h1>
-                        <p className="text-slate-400 font-medium mb-10">請開啟您的雲端同步權限</p>
-                        <button onClick={() => auth.signInWithPopup(provider)} className="w-full max-w-xs py-5 bg-emerald-600 text-white rounded-3xl font-black text-xl shadow-xl active:scale-95 transition-all">Google 帳號登入</button>
-                    </div>
-                );
-            }
+            if (!user) return (
+                <div className="h-screen flex flex-col items-center justify-center bg-white p-6">
+                    <div className="bg-emerald-500 p-5 rounded-3xl text-white mb-6 shadow-xl"><Icon name="package" size={48} /></div>
+                    <h1 className="text-3xl font-black text-emerald-900 mb-8 tracking-tighter">庫存管家</h1>
+                    <button onClick={() => auth.signInWithPopup(provider)} className="bg-emerald-600 text-white px-10 py-4 rounded-2xl font-bold shadow-lg active:scale-95 transition-all">Google 帳號登入</button>
+                </div>
+            );
 
             return (
-                <div className="min-h-screen pb-24">
-                    <nav className="bg-white/90 backdrop-blur-lg sticky top-0 z-40 px-6 py-5 flex justify-between items-center border-b border-emerald-50 shadow-sm">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-emerald-500 p-2.5 rounded-xl text-white shadow-md shadow-emerald-50"><Icon name="refresh-cw" size={18} className="animate-spin-slow" /></div>
-                            <span className="font-black text-emerald-900 text-xl tracking-tight">庫存同步中</span>
+                <div className="min-h-screen pb-20">
+                    <nav className="bg-white px-6 py-4 flex justify-between items-center border-b border-slate-100 sticky top-0 z-40">
+                        <div className="flex items-center gap-2">
+                            <div className="bg-emerald-500 p-2 rounded-lg text-white shadow-sm shadow-emerald-100"><Icon name="package" size={20} /></div>
+                            <span className="font-black text-emerald-900 text-xl tracking-tight">庫存管家</span>
                         </div>
                         <div className="flex items-center gap-4">
-                            <button onClick={() => { setEditingItem(null); setFormData({name:'', sku:'', stock:0, warningLevel:5}); setIsModalOpen(true); }} className="bg-emerald-600 text-white w-12 h-12 rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform"><Icon name="plus" size={24} /></button>
-                            <img src={user.photoURL} onClick={() => auth.signOut()} className="w-10 h-10 rounded-full border-2 border-white shadow-md" />
+                            <button onClick={() => { setEditingItem(null); setFormData({name:'', sku:'', stock:0, warningLevel:5}); setIsModalOpen(true); }} className="bg-emerald-600 text-white px-4 py-2 rounded-full flex items-center gap-2 font-bold shadow-sm active:scale-95 transition-all"><Icon name="plus" size={18} /><span>新增</span></button>
+                            <img src={user.photoURL} onClick={() => auth.signOut()} className="w-9 h-9 rounded-full border border-slate-200 cursor-pointer shadow-sm" />
                         </div>
                     </nav>
 
-                    <main className="p-6 max-w-2xl mx-auto space-y-6">
-                        <div className="flex gap-3">
-                            <div className="flex-1 bg-white rounded-2xl px-5 py-4 flex items-center border border-emerald-100 shadow-inner">
-                                <Icon name="search" size={20} className="text-emerald-300" />
-                                <input placeholder="搜尋名稱或 SKU..." className="w-full ml-3 bg-transparent outline-none font-bold text-slate-700" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} />
+                    <main className="p-6 max-w-6xl mx-auto">
+                        {/* 🌟 儀表板三欄位：總品項、庫存警示、搜尋框 🌟 */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                            <div className="stat-card p-6 rounded-2xl shadow-sm">
+                                <p className="text-slate-400 text-xs font-black mb-1 uppercase tracking-widest">總品項</p>
+                                <p className="text-4xl font-black text-slate-800 tracking-tighter">{inventory.length}</p>
                             </div>
-                            <button onClick={()=>setShowOnlyAlert(!showOnlyAlert)} className={`px-5 rounded-2xl font-black text-xs transition-all flex items-center gap-2 ${showOnlyAlert ? 'bg-red-500 text-white shadow-lg' : 'bg-white text-red-500 border border-red-100'}`}>
-                                <Icon name="alert-triangle" size={16} />{showOnlyAlert ? '查看全部' : '僅缺貨'}
+                            <div className={`p-6 rounded-2xl border shadow-sm transition-all ${alertCount > 0 ? 'alert-card' : 'stat-card'}`}>
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className={`${alertCount > 0 ? 'text-red-400' : 'text-slate-400'} text-xs font-black mb-1 uppercase tracking-widest`}>庫存警示</p>
+                                        <p className={`text-4xl font-black ${alertCount > 0 ? 'text-red-500' : 'text-slate-800'} tracking-tighter`}>{alertCount}</p>
+                                    </div>
+                                    {alertCount > 0 && <Icon name="alert-triangle" className="text-red-400 animate-bounce" size={32} />}
+                                </div>
+                            </div>
+                            <div className="stat-card p-6 rounded-2xl flex items-center shadow-sm">
+                                <div className="w-full bg-slate-50 rounded-xl px-4 py-3 flex items-center border border-slate-100 focus-within:ring-2 focus-within:ring-emerald-500 transition-all">
+                                    <Icon name="search" className="text-slate-300 mr-3" size={18} />
+                                    <input placeholder="搜尋名稱或 SKU..." className="w-full bg-transparent outline-none font-bold text-slate-700 text-sm" value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-2 mb-6">
+                            <button onClick={()=>setShowOnlyAlert(false)} className={`px-6 py-2 rounded-full font-black text-xs transition-all ${!showOnlyAlert ? 'bg-emerald-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200'}`}>全部商品</button>
+                            <button onClick={()=>setShowOnlyAlert(true)} className={`px-6 py-2 rounded-full font-black text-xs transition-all flex items-center gap-1 ${showOnlyAlert ? 'bg-red-500 text-white shadow-md' : 'bg-white text-red-500 border border-red-200'}`}>
+                                <Icon name="alert-circle" size={14} />庫存不足
                             </button>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {filteredList.map(item => (
-                                <div key={item.id} className={`bg-white p-7 rounded-[2.5rem] border shadow-sm transition-all relative ${item.stock <= item.warningLevel ? 'border-red-100 bg-red-50/10' : 'border-emerald-50'}`}>
+                                <div key={item.id} className={`bg-white p-7 rounded-[2.5rem] border shadow-sm relative overflow-hidden transition-all hover:shadow-md ${item.stock <= item.warningLevel ? 'border-red-100' : 'border-slate-100'}`}>
                                     <div className="flex justify-between items-start mb-6">
-                                        <div className="space-y-2">
-                                            <h3 className="font-black text-slate-800 text-2xl tracking-tight">{item.name}</h3>
-                                            <span className="text-xs font-mono font-black bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-xl border border-emerald-100/50 uppercase tracking-widest">{item.sku}</span>
+                                        <div>
+                                            <h3 className="font-black text-slate-800 text-xl mb-1 tracking-tight">{item.name}</h3>
+                                            <span className="text-[10px] font-mono font-black bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg border border-emerald-100/50 uppercase tracking-widest">{item.sku}</span>
                                         </div>
                                         <div className="flex gap-2">
-                                            <button onClick={()=>{setEditingItem(item); setFormData(item); setIsModalOpen(true);}} className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-emerald-50 hover:text-emerald-500 transition-colors"><Icon name="edit-3" size={20}/></button>
-                                            <button onClick={async () => { if(confirm("確定從雲端刪除嗎？")) { await db.collection('inventory').doc(user.uid).collection('items').doc(item.id).delete(); loadData(user.uid); } }} className="p-3 bg-red-50 text-red-200 rounded-2xl hover:bg-red-500 hover:text-white transition-colors"><Icon name="trash-2" size={20}/></button>
+                                            <button onClick={()=>{setEditingItem(item); setFormData(item); setIsModalOpen(true);}} className="p-2.5 bg-slate-50 text-slate-300 rounded-xl hover:text-emerald-500 hover:bg-emerald-50 transition-all"><Icon name="edit-3" size={18}/></button>
+                                            <button onClick={async () => { if(confirm("確定刪除？")) { await db.collection('inventory').doc(user.uid).collection('items').doc(item.id).delete(); loadData(user.uid); } }} className="p-2.5 bg-red-50 text-red-200 rounded-xl hover:bg-red-500 hover:text-white transition-all"><Icon name="trash-2" size={18}/></button>
                                         </div>
                                     </div>
                                     <div className="flex items-end justify-between">
-                                        <div className="flex items-baseline gap-2">
-                                            <span className={`text-6xl font-black tracking-tighter ${item.stock <= item.warningLevel ? 'alert-pulse' : 'text-emerald-900'}`}>{item.stock}</span>
-                                            <span className="text-xs text-slate-400 font-black uppercase tracking-widest">PCS</span>
+                                        <div className="flex items-baseline gap-1">
+                                            <span className={`text-5xl font-black ${item.stock <= item.warningLevel ? 'alert-pulse' : 'text-slate-900'} tracking-tighter`}>{item.stock}</span>
+                                            <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">PCS</span>
                                         </div>
-                                        <div className={`px-4 py-2 rounded-2xl border text-[11px] font-black tracking-wider ${item.stock <= item.warningLevel ? 'bg-red-500 text-white border-red-400 shadow-md' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
-                                            {item.stock <= item.warningLevel ? '立即補貨' : `低於 ${item.warningLevel} 警告`}
-                                        </div>
+                                        <span className={`text-[10px] font-black px-4 py-1.5 rounded-full border transition-colors ${item.stock <= item.warningLevel ? 'bg-red-500 border-red-400 text-white shadow-sm' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>警報線 {item.warningLevel}</span>
                                     </div>
-                                    {item.stock <= item.warningLevel && <div className="absolute top-0 right-10 bg-red-500 text-white text-[10px] font-black px-4 py-1.5 rounded-b-2xl shadow-lg animate-bounce">⚡ LOW STOCK</div>}
+                                    {item.stock <= item.warningLevel && <div className="absolute top-0 right-0 bg-red-500 text-white text-[9px] font-black px-4 py-1 rounded-bl-2xl shadow-lg">⚡ LOW STOCK</div>}
                                 </div>
                             ))}
                         </div>
                     </main>
 
                     {isModalOpen && (
-                        <div className="fixed inset-0 bg-emerald-950/70 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-4">
-                            <div className="bg-white w-full max-w-sm rounded-t-[3.5rem] sm:rounded-[4rem] p-10 shadow-2xl animate-in slide-in-from-bottom duration-300">
-                                <div className="flex justify-between items-center mb-8">
-                                    <h2 className="text-3xl font-black text-emerald-900">{editingItem ? '調整商品' : '新貨入庫'}</h2>
-                                    <button onClick={()=>setIsModalOpen(false)} className="p-2 bg-slate-50 rounded-full text-slate-300"><Icon name="x" size={24}/></button>
-                                </div>
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-4">
+                            <div className="bg-white w-full max-w-sm rounded-t-[3.5rem] sm:rounded-[4rem] p-10 shadow-2xl animate-in slide-in-from-bottom sm:zoom-in duration-300">
+                                <h2 className="text-3xl font-black text-slate-800 mb-8">{editingItem ? '修改商品' : '新增入庫'}</h2>
                                 <div className="space-y-6">
                                     <div className="space-y-4">
-                                        <div className="bg-slate-50/80 rounded-2xl px-6 py-4 border-2 border-transparent focus-within:border-emerald-500 transition-all">
-                                            <label className="text-[11px] font-black text-emerald-400 uppercase tracking-widest block mb-1">商品品名</label>
+                                        <div className="bg-slate-50 rounded-2xl px-6 py-4">
+                                            <label className="text-[11px] font-black text-emerald-500 uppercase tracking-widest block mb-1">商品名稱</label>
                                             <input placeholder="輸入名稱..." className="w-full bg-transparent text-xl font-bold outline-none text-slate-700" value={formData.name} onChange={e=>setFormData({...formData, name:e.target.value})} />
                                         </div>
-                                        <div className="bg-slate-50/80 rounded-2xl px-6 py-4 border-2 border-transparent focus-within:border-emerald-500 transition-all">
-                                            <label className="text-[11px] font-black text-emerald-400 uppercase tracking-widest block mb-1">SKU 編號</label>
-                                            <input placeholder="編號..." className="w-full bg-transparent text-xl font-mono outline-none text-slate-700" value={formData.sku} onChange={e=>setFormData({...formData, sku:e.target.value.toUpperCase()})} />
+                                        <div className="bg-slate-50 rounded-2xl px-6 py-4">
+                                            <label className="text-[11px] font-black text-emerald-500 uppercase tracking-widest block mb-1">SKU 編號</label>
+                                            <input placeholder="SKU..." className="w-full bg-transparent text-xl font-mono outline-none text-slate-700 uppercase" value={formData.sku} onChange={e=>setFormData({...formData, sku:e.target.value.toUpperCase()})} />
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-5">
-                                        <div className="bg-emerald-50/50 p-6 rounded-[2.5rem] border-2 border-emerald-100 text-center">
-                                            <label className="text-[10px] font-black text-emerald-700 block mb-1 uppercase tracking-tighter">現有存量</label>
+                                        <div className="bg-emerald-50/50 p-6 rounded-[2.5rem] border border-emerald-100 text-center">
+                                            <label className="text-[10px] font-black text-emerald-700 block mb-1 uppercase tracking-widest">當前庫存</label>
                                             <input type="number" className="bg-transparent text-4xl font-black w-full text-center outline-none text-emerald-900" value={formData.stock} onChange={e=>setFormData({...formData, stock:e.target.value})} />
                                         </div>
-                                        <div className="bg-red-50/50 p-6 rounded-[2.5rem] border-2 border-red-100 text-center">
-                                            <label className="text-[10px] font-black text-red-700 block mb-1 uppercase tracking-tighter">警報設定</label>
+                                        <div className="bg-red-50/50 p-6 rounded-[2.5rem] border border-red-100 text-center">
+                                            <label className="text-[10px] font-black text-red-700 block mb-1 uppercase tracking-widest">警報水位</label>
                                             <input type="number" className="bg-transparent text-4xl font-black w-full text-center outline-none text-red-600" value={formData.warningLevel} onChange={e=>setFormData({...formData, warningLevel:e.target.value})} />
                                         </div>
                                     </div>
-                                    <button onClick={handleSubmit} className="w-full py-6 bg-emerald-600 text-white rounded-[2.5rem] font-black text-xl shadow-xl shadow-emerald-200 active:scale-95 transition-all mt-4 flex items-center justify-center gap-3">
+                                    <button onClick={handleSubmit} className="w-full py-6 bg-emerald-600 text-white rounded-[2.5rem] font-black text-xl shadow-xl shadow-emerald-100 active:scale-95 transition-all mt-4 flex items-center justify-center gap-2">
                                         <Icon name="check" size={24} /> 同步儲存
                                     </button>
+                                    <button onClick={()=>setIsModalOpen(false)} className="w-full py-2 text-slate-300 font-bold text-sm tracking-widest">取消返回</button>
                                 </div>
                             </div>
                         </div>
