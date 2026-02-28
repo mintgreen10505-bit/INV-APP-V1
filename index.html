@@ -8,8 +8,8 @@
     <meta name="apple-mobile-web-app-title" content="庫存管家">
     <title>庫存管家</title>
     
-    <link rel="icon" type="image/jpeg" href="icon.jpg?v=6">
-    <link rel="apple-touch-icon" type="image/jpeg" href="icon.jpg?v=6">
+    <link rel="icon" type="image/jpeg" href="icon.jpg?v=8">
+    <link rel="apple-touch-icon" type="image/jpeg" href="icon.jpg?v=8">
     
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -28,7 +28,6 @@
     <script type="text/babel">
         const { useState, useMemo, useRef, useEffect } = React;
 
-        // 🌟 防白畫面：把圖示鎖在安全區域裡 🌟
         const Icon = ({ name, size = 20, className = "" }) => {
             const spanRef = useRef(null);
             useEffect(() => {
@@ -44,10 +43,22 @@
         };
 
         const App = () => {
-            const [inventory, setInventory] = useState([
-                { id: 1, name: "示範商品 A", sku: "SKU-001", stock: 5, warningLevel: 10, image: null, updatedAt: new Date().toLocaleDateString() },
-                { id: 2, name: "示範商品 B", sku: "SKU-002", stock: 25, warningLevel: 15, image: null, updatedAt: new Date().toLocaleDateString() }
-            ]);
+            // 🌟 核心升級：加上記憶功能，自動從手機保險箱讀取資料 🌟
+            const [inventory, setInventory] = useState(() => {
+                const savedData = localStorage.getItem('mintgreen_inventory');
+                if (savedData) {
+                    return JSON.parse(savedData);
+                }
+                return [
+                    { id: 1, name: "示範商品 A (可刪除)", sku: "SKU-001", stock: 5, warningLevel: 10, image: null, updatedAt: new Date().toLocaleDateString() },
+                    { id: 2, name: "示範商品 B (可刪除)", sku: "SKU-002", stock: 25, warningLevel: 15, image: null, updatedAt: new Date().toLocaleDateString() }
+                ];
+            });
+
+            // 🌟 核心升級：只要資料有變動，立刻存進手機保險箱 🌟
+            useEffect(() => {
+                localStorage.setItem('mintgreen_inventory', JSON.stringify(inventory));
+            }, [inventory]);
 
             const [isModalOpen, setIsModalOpen] = useState(false);
             const [editingItem, setEditingItem] = useState(null);
@@ -64,7 +75,6 @@
                 setTimeout(() => setNotification(null), 3000);
             };
 
-            // 🌟 防記憶體超載崩潰魔法 🌟
             const handleImageChange = (e) => {
                 const file = e.target.files[0];
                 if (file) {
@@ -87,13 +97,23 @@
 
             const handleSubmit = (e) => {
                 e.preventDefault();
+                if (!formData.name.trim()) {
+                    showNotice("請記得輸入「商品名稱」喔！");
+                    return; 
+                }
+                if (!formData.sku.trim()) {
+                    showNotice("請記得輸入「SKU 編號」喔！");
+                    return; 
+                }
+
                 const updatedData = { ...formData, updatedAt: new Date().toLocaleDateString(), stock: Number(formData.stock), warningLevel: Number(formData.warningLevel) };
+                
                 if (editingItem) {
                     setInventory(inventory.map(item => item.id === editingItem.id ? { ...updatedData, id: item.id } : item));
-                    showNotice("商品資料已更新");
+                    showNotice("商品資料已完美更新並存檔！");
                 } else {
                     setInventory([...inventory, { ...updatedData, id: Date.now() }]);
-                    showNotice("新商品已新增");
+                    showNotice("新商品已成功加入倉庫並存檔！");
                 }
                 setIsModalOpen(false);
             };
@@ -258,11 +278,11 @@
                                         <div className="flex-1 space-y-6 w-full">
                                             <div>
                                                 <label className="text-lg font-black text-emerald-800 block mb-2 uppercase tracking-wide">商品名稱</label>
-                                                <input required placeholder="輸入商品名稱..." className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 focus:bg-white rounded-3xl outline-none font-bold text-xl transition-all shadow-sm" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+                                                <input placeholder="輸入商品名稱..." className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 focus:bg-white rounded-3xl outline-none font-bold text-xl transition-all shadow-sm" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
                                             </div>
                                             <div>
                                                 <label className="text-lg font-black text-emerald-800 block mb-2 uppercase tracking-wide">SKU 編號</label>
-                                                <input required placeholder="SKU-XXXX" className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 focus:bg-white rounded-3xl outline-none font-mono text-lg uppercase transition-all shadow-sm" value={formData.sku} onChange={(e) => setFormData({...formData, sku: e.target.value.toUpperCase()})} />
+                                                <input placeholder="SKU-XXXX" className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent focus:border-emerald-500 focus:bg-white rounded-3xl outline-none font-mono text-lg uppercase transition-all shadow-sm" value={formData.sku} onChange={(e) => setFormData({...formData, sku: e.target.value.toUpperCase()})} />
                                             </div>
                                         </div>
                                     </div>
