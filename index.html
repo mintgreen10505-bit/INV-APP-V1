@@ -62,12 +62,17 @@
                 setTimeout(() => setNotification(null), 3000);
             };
 
+            // 🌟 這裡就是修復白畫面的關鍵魔法 🌟
             const handleImageChange = (e) => {
                 const file = e.target.files[0];
                 if (file) {
-                    const reader = new FileReader();
-                    reader.onloadend = () => setFormData({ ...formData, image: reader.result });
-                    reader.readAsDataURL(file);
+                    // 放棄舊的、會塞爆記憶體的寫法
+                    // 改用超輕量的 URL.createObjectURL，瞬間產生預覽圖
+                    const tempImageUrl = URL.createObjectURL(file);
+                    setFormData({ ...formData, image: tempImageUrl });
+                    
+                    // 清空輸入框，確保下次選同一張照片也能觸發
+                    e.target.value = '';
                 }
             };
 
@@ -77,4 +82,13 @@
                     setFormData(item);
                 } else {
                     setEditingItem(null);
-                    setFormData({ name: '', sku: '', stock: 0, warningLevel:
+                    setFormData({ name: '', sku: '', stock: 0, warningLevel: 5, image: null });
+                }
+                setIsModalOpen(true);
+            };
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                const updatedData = { ...formData, updatedAt: new Date().toLocaleDateString(), stock: Number(formData.stock), warningLevel: Number(formData.warningLevel) };
+                if (editingItem) {
+                    setInventory(inventory.map(item => item.id === editingItem.
