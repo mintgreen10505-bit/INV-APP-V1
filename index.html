@@ -124,4 +124,102 @@
 
             if (loading) return <div className="h-screen flex items-center justify-center text-emerald-600 font-bold">雲端同步中...</div>;
 
-            if (!user
+            if (!user) return <div className="h-screen flex items-center justify-center"><button onClick={() => auth.signInWithRedirect(provider)} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-bold">重新登入</button></div>;
+
+            return (
+                <div className="min-h-screen pb-24">
+                    <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-40 px-6 py-4 flex justify-between items-center border-b border-emerald-100 shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-emerald-500 p-2 rounded-xl text-white shadow-lg shadow-emerald-100"><Icon name="package" /></div>
+                            <div>
+                                <h1 className="font-black text-emerald-900 leading-tight">庫存同步中</h1>
+                                <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest">Cloud Sync Active</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <button onClick={() => { setEditingItem(null); setFormData({name:'', sku:'', stock:0, warningLevel:5}); setIsModalOpen(true); }} className="bg-emerald-600 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform"><Icon name="plus" /></button>
+                            <img src={user.photoURL} onClick={() => auth.signOut()} className="w-10 h-10 rounded-full border-2 border-white shadow-md cursor-pointer" />
+                        </div>
+                    </nav>
+
+                    <main className="p-6 max-w-2xl mx-auto space-y-6">
+                        <div className="flex gap-3">
+                            <div className="flex-1 bg-white rounded-2xl px-4 py-3 flex items-center border border-emerald-50 shadow-sm focus-within:ring-2 focus-within:ring-emerald-500 transition-all">
+                                <Icon name="search" className="text-emerald-300" />
+                                <input placeholder="搜尋..." className="w-full ml-2 bg-transparent outline-none font-bold text-sm" value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)} />
+                            </div>
+                            <button onClick={() => setShowOnlyAlert(!showOnlyAlert)} className={`px-4 rounded-2xl font-black text-xs transition-all ${showOnlyAlert ? 'bg-red-500 text-white shadow-lg shadow-red-100' : 'bg-white text-red-500 border border-red-100'}`}>
+                                <Icon name="alert-circle" size={16} className="mr-1" />{showOnlyAlert ? '查看全部' : '僅缺貨'}
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4">
+                            {filteredList.map(item => (
+                                <div key={item.id} className={`bg-white p-6 rounded-[2.5rem] border shadow-sm transition-all relative overflow-hidden ${item.stock <= item.warningLevel ? 'border-red-100 bg-red-50/10' : 'border-emerald-50 hover:border-emerald-200'}`}>
+                                    <div className="flex justify-between items-start mb-6">
+                                        <div className="space-y-1">
+                                            <h3 className="font-black text-slate-800 text-xl">{item.name}</h3>
+                                            <span className="text-[10px] font-mono font-black bg-emerald-100/50 text-emerald-700 px-3 py-1 rounded-full">{item.sku}</span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={()=>{setEditingItem(item); setFormData(item); setIsModalOpen(true);}} className="p-2.5 bg-slate-50 text-slate-400 rounded-xl hover:bg-emerald-50 hover:text-emerald-500 transition-colors"><Icon name="edit-3" size={18}/></button>
+                                            <button onClick={()=>deleteItem(item.id)} className="p-2.5 bg-red-50 text-red-200 rounded-xl hover:bg-red-500 hover:text-white transition-colors"><Icon name="trash-2" size={18}/></button>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-end justify-between">
+                                        <div className="flex items-baseline gap-2">
+                                            <span className={`text-5xl font-black tracking-tighter ${item.stock <= item.warningLevel ? 'text-red-600 alert-pulse' : 'text-emerald-900'}`}>{item.stock}</span>
+                                            <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">PCS</span>
+                                        </div>
+                                        <div className={`px-4 py-1.5 rounded-full border text-[10px] font-black ${item.stock <= item.warningLevel ? 'bg-red-100 border-red-200 text-red-700' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
+                                            低於 {item.warningLevel} 即警告
+                                        </div>
+                                    </div>
+                                    {item.stock <= item.warningLevel && <div className="absolute top-0 right-0 bg-red-500 text-white text-[9px] font-black px-4 py-1.5 rounded-bl-2xl">⚡ 庫存偏低</div>}
+                                </div>
+                            ))}
+                        </div>
+                    </main>
+
+                    {isModalOpen && (
+                        <div className="fixed inset-0 bg-emerald-950/60 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-4">
+                            <div className="bg-white w-full max-w-sm rounded-t-[3.5rem] sm:rounded-[3.5rem] p-10 shadow-2xl animate-in slide-in-from-bottom sm:zoom-in duration-300">
+                                <h2 className="text-3xl font-black text-emerald-900 mb-8">{editingItem ? '修改品項' : '新商品入庫'}</h2>
+                                <div className="space-y-6">
+                                    <div className="space-y-4">
+                                        <div className="bg-slate-50 rounded-2xl px-5 py-3">
+                                            <label className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block mb-1">商品名稱</label>
+                                            <input placeholder="輸入名稱..." className="w-full bg-transparent text-lg font-bold outline-none" value={formData.name} onChange={e=>setFormData({...formData, name:e.target.value})} />
+                                        </div>
+                                        <div className="bg-slate-50 rounded-2xl px-5 py-3">
+                                            <label className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block mb-1">SKU 編號</label>
+                                            <input placeholder="編號..." className="w-full bg-transparent text-lg font-mono outline-none" value={formData.sku} onChange={e=>setFormData({...formData, sku:e.target.value.toUpperCase()})} />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-emerald-50/50 p-5 rounded-[2rem] border border-emerald-100 text-center">
+                                            <label className="text-[10px] font-black text-emerald-700 block mb-1 uppercase">當前庫存</label>
+                                            <input type="number" className="bg-transparent text-4xl font-black w-full text-center outline-none text-emerald-900" value={formData.stock} onChange={e=>setFormData({...formData, stock:e.target.value})} />
+                                        </div>
+                                        <div className="bg-red-50/50 p-5 rounded-[2rem] border border-red-100 text-center">
+                                            <label className="text-[10px] font-black text-red-700 block mb-1 uppercase">警報水位</label>
+                                            <input type="number" className="bg-transparent text-4xl font-black w-full text-center outline-none text-red-600" value={formData.warningLevel} onChange={e=>setFormData({...formData, warningLevel:e.target.value})} />
+                                        </div>
+                                    </div>
+                                    <button onClick={handleSubmit} className="w-full py-6 bg-emerald-600 text-white rounded-[2rem] font-black text-xl shadow-xl shadow-emerald-100 active:scale-95 transition-all mt-4">同步至雲端</button>
+                                    <button onClick={()=>setIsModalOpen(false)} className="w-full py-2 text-slate-300 font-bold text-sm tracking-widest">取消返回</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {notification && <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-10 py-5 rounded-full shadow-2xl z-[100] animate-in slide-in-from-bottom font-black text-sm tracking-widest">{notification}</div>}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
